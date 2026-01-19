@@ -59,9 +59,6 @@ import { TodoService } from '../../services/todo.service';
         #titleInput
         class="edit-input"
         [value]="todo.title"
-        (blur)="stopEdit(titleInput.value)"
-        (keyup.enter)="stopEdit(titleInput.value)"
-        (keyup.escape)="cancelEdit()"
       />
     </li>
   `,

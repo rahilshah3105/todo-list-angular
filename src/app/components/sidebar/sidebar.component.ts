@@ -56,9 +56,7 @@ import { DialogService } from '../../services/dialog.service';
           <input 
             #newListName 
             type="text" 
-            placeholder="List Name" 
-            (keyup.enter)="addList(newListName.value); newListName.value = ''"
-            (blur)="isAddingList = false"
+            placeholder="List Name"
             autofocus
           >
         </div>
@@ -224,7 +222,6 @@ import { DialogService } from '../../services/dialog.service';
     }
 
     .system-lists li svg, .custom-lists li svg:first-child {
-      margin-right: 12px;
       color: inherit;
     }
 
