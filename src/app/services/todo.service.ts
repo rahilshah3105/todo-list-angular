@@ -1,6 +1,7 @@
 import { Injectable, signal, computed, effect } from '@angular/core';
 import { Todo } from '../models/todo.model';
 import { Category } from '../models/category.model';
+import { LoggerService } from './logger.service';
 
 @Injectable({
     providedIn: 'root'
@@ -75,7 +76,8 @@ export class TodoService {
         });
     });
 
-    constructor() {
+    constructor(private logger: LoggerService) {
+        this.logger.info('TodoService initialized');
         this.loadFromStorage();
 
         // Auto-save
@@ -86,7 +88,10 @@ export class TodoService {
 
     // Actions
     addTodo(title: string, priority: 'low' | 'medium' | 'high' = 'medium', startDate: number | null = null, endDate: number | null = null, isImportant = false) {
-        if (!title.trim()) return;
+        if (!title.trim()) {
+            this.logger.warn('Add todo failed: Empty title');
+            return;
+        }
 
         const currentView = this.currentViewSignal();
         const isCustomCategory = !['my-day', 'important', 'planned', 'all'].includes(currentView);
@@ -102,28 +107,36 @@ export class TodoService {
             categoryId: isCustomCategory ? currentView : undefined
         };
         this.todosSignal.update(todos => [...todos, newTodo]);
+        this.logger.info('Todo added', { id: newTodo.id, title: newTodo.title, priority });
     }
 
     toggleTodo(id: string) {
+        const todo = this.todosSignal().find(t => t.id === id);
         this.todosSignal.update(todos =>
             todos.map(t => t.id === id ? { ...t, completed: !t.completed } : t)
         );
+        this.logger.debug('Todo toggled', { id, completed: !todo?.completed });
     }
 
     toggleImportant(id: string) {
+        const todo = this.todosSignal().find(t => t.id === id);
         this.todosSignal.update(todos =>
             todos.map(t => t.id === id ? { ...t, isImportant: !t.isImportant } : t)
         );
+        this.logger.debug('Todo importance toggled', { id, isImportant: !todo?.isImportant });
     }
 
     deleteTodo(id: string) {
+        const todo = this.todosSignal().find(t => t.id === id);
         this.todosSignal.update(todos => todos.filter(t => t.id !== id));
+        this.logger.info('Todo deleted', { id, title: todo?.title });
     }
 
     updateTodo(id: string, updates: Partial<Todo>) {
         this.todosSignal.update(todos =>
             todos.map(t => t.id === id ? { ...t, ...updates } : t)
         );
+        this.logger.debug('Todo updated', { id, updates });
     }
 
     // Category Actions
@@ -132,7 +145,10 @@ export class TodoService {
     }
 
     addCategory(name: string) {
-        if (!name.trim()) return;
+        if (!name.trim()) {
+            this.logger.warn('Add category failed: Empty name');
+            return;
+        }
         const newCat: Category = {
             id: crypto.randomUUID(),
             name: name.trim(),
@@ -141,14 +157,17 @@ export class TodoService {
         };
         this.categoriesSignal.update(cats => [...cats, newCat]);
         this.selectView(newCat.id);
+        this.logger.info('Category added', { id: newCat.id, name: newCat.name });
     }
 
     deleteCategory(id: string) {
+        const category = this.categoriesSignal().find(c => c.id === id);
         this.categoriesSignal.update(cats => cats.filter(c => c.id !== id));
         this.todosSignal.update(todos => todos.filter(t => t.categoryId !== id));
         if (this.currentViewSignal() === id) {
             this.currentViewSignal.set('my-day');
         }
+        this.logger.info('Category deleted', { id, name: category?.name });
     }
 
     // Persistence
@@ -168,12 +187,19 @@ export class TodoService {
             if (oldTodos) {
                 try {
                     this.todosSignal.set(JSON.parse(oldTodos));
-                } catch (e) { }
+                    this.logger.debug('Migrated from legacy storage');
+                } catch (e) {
+                    this.logger.error('Failed to migrate legacy todos', e);
+                }
             }
         } else {
             try {
-                this.todosSignal.set(JSON.parse(storedTodos));
-            } catch (e) { }
+                const todos = JSON.parse(storedTodos);
+                this.todosSignal.set(todos);
+                this.logger.debug('Todos loaded from storage', { count: todos.length });
+            } catch (e) {
+                this.logger.error('Failed to load todos from storage', e);
+            }
         }
 
         if (storedCats) {
